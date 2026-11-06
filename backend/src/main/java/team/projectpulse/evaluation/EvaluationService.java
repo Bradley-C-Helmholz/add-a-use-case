@@ -8,6 +8,7 @@ import team.projectpulse.system.exception.ObjectNotFoundException;
 import team.projectpulse.student.Student;
 import team.projectpulse.student.StudentRepository;
 import team.projectpulse.team.Team;
+import team.projectpulse.user.PeerEvaluationUser;
 import jakarta.transaction.Transactional;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,6 +35,7 @@ public class EvaluationService {
     private static final String RUBRIC_MISMATCH_MESSAGE = "This evaluation was scored against a different set of criteria and can no longer be updated.";
     private static final String NOT_PREVIOUS_WEEK_MESSAGE = "You can only submit evaluations for the previous week.";
     private static final String WINDOW_CLOSED_MESSAGE = "The submission window for this peer evaluation has closed, so it can no longer be changed.";
+    private static final String EVALUATEE_DEACTIVATED_MESSAGE = "This team member's account is deactivated, so she is not evaluated.";
 
     private final PeerEvaluationRepository evaluationRepository;
     private final StudentRepository studentRepository;
@@ -65,6 +67,13 @@ public class EvaluationService {
         Team evaluateeTeam = newPeerEvaluation.getEvaluatee().getTeam();
         if (evaluatorTeamId == null || evaluateeTeam == null || !evaluatorTeamId.equals(evaluateeTeam.getTeamId())) {
             throw new PeerEvaluationIllegalArgumentException("The evaluator and evaluatee must be on the same team.");
+        }
+
+        // A deactivated student cannot be evaluated (BR-deactivated-student-not-evaluated). The evaluations already
+        // submitted of her stay (UC-EVA-submit-evaluation 1d); only a new one is refused, so the server stays
+        // authoritative when a teammate's form was opened before she was deactivated.
+        if (!newPeerEvaluation.getEvaluatee().isEnabled()) {
+            throw new PeerEvaluationIllegalArgumentException(EVALUATEE_DEACTIVATED_MESSAGE);
         }
 
         // Make sure this is not a duplicate evaluation
@@ -220,8 +229,20 @@ public class EvaluationService {
 
         report.setSectionName(this.sectionRepository.findById(sectionId).orElseThrow(() -> new ObjectNotFoundException("section", sectionId)).getSectionName());
 
-        // Get all students in the section
-        List<Student> students = this.studentRepository.findBySectionSectionId(sectionId).stream().filter(student -> student.getTeam() != null).collect(Collectors.toList());
+        // Get all students in the section who are on a team
+        List<Student> studentsOnATeam = this.studentRepository.findBySectionSectionId(sectionId).stream().filter(student -> student.getTeam() != null).collect(Collectors.toList());
+
+        // List a student if her account is enabled, or if she received peer evaluations in this week
+        // (BR-deactivated-student-not-evaluated). addPeerEvaluation refuses an evaluation of a deactivated
+        // student, so after her deactivation she receives none: the weeks before it still list her with her data and
+        // the later weeks omit her. The rule is read off the evaluations rather than a stored deactivation date, so
+        // reactivating her loses nothing. Only look who was evaluated when someone in the section is deactivated.
+        Set<Integer> evaluateeIds = studentsOnATeam.stream().allMatch(PeerEvaluationUser::isEnabled)
+                ? Set.of()
+                : findEvaluateeIdsByEvaluator(sectionId, week).values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+        List<Student> students = studentsOnATeam.stream()
+                .filter(student -> student.isEnabled() || evaluateeIds.contains(student.getId()))
+                .collect(Collectors.toList());
 
         // For each student, compute her average total score, collect all public comments and private comments, and compute rating averages for each criterion.
         students.forEach(student -> {
