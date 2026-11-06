@@ -1488,10 +1488,13 @@ Details:
 - **6d. The student is logged in when she is deactivated:**
   - 6d1. The system denies her next request, and every request after it, until she is reactivated (FR-SEC-active-account). She need not wait for her login to expire.
   - 6d2. Use case ends.
+- **6e. Her teammates evaluate her after the deactivation:**
+  - 6e1. The system does not accept a new peer evaluation of her, keeps the peer evaluations already submitted of her, and lists her in a peer evaluation report only for the weeks in which she received peer evaluations (BR-deactivated-student-not-evaluated).
+  - 6e2. Use case ends.
 
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
-**Business Rules:** BR-student-lifecycle
+**Business Rules:** BR-student-lifecycle, BR-deactivated-student-not-evaluated
 
 **Associated Information:**
 - Consequence of the deactivation: The student will no longer be able to log in or submit weekly activity reports and peer evaluations, but the student's account and her previously submitted work are kept in the system. Deactivation will NOT remove the student from the system, and the account can be reactivated in the future (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete. The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
