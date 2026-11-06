@@ -1485,6 +1485,9 @@ Details:
 - **6c. The student no longer exists** (for example, a course admin deleted her after step 2, UC-STU-delete-student: Delete a student):
   - 6c1. The system informs the course admin or instructor that the student was not found.
   - 6c2. Use case ends.
+- **6d. The student is logged in when she is deactivated:**
+  - 6d1. The system denies her next request, and every request after it, until she is reactivated (FR-SEC-active-account). She need not wait for her login to expire.
+  - 6d2. Use case ends.
 
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
