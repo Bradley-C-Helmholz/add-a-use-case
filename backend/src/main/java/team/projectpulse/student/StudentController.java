@@ -70,6 +70,18 @@ public class StudentController {
         return new Result(true, StatusCode.SUCCESS, "Update student successfully", updatedStudentDto);
     }
 
+    /**
+     * UC-STU-deactivate-student: a dedicated sub-resource rather than the {@code enabled} field of
+     * {@code PUT /students/{studentId}}, because deactivation is a confirmed, deliberate action and the update is a
+     * whole-form save. Succeeds the same way when the student is already deactivated.
+     */
+    @PostMapping("/{studentId}/deactivation")
+    public Result deactivateStudent(@PathVariable Integer studentId) {
+        Student deactivatedStudent = this.studentService.deactivateStudent(studentId);
+        StudentDto deactivatedStudentDto = this.studentToStudentDtoConverter.convert(deactivatedStudent);
+        return new Result(true, StatusCode.SUCCESS, "Deactivate student successfully", deactivatedStudentDto);
+    }
+
     @DeleteMapping("/{studentId}")
     public Result deleteStudent(@PathVariable Integer studentId) {
         this.studentService.deleteStudent(studentId);

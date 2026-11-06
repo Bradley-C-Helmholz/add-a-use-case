@@ -673,4 +673,79 @@ class EvaluationServiceTest {
         assertThat(peerEvaluations.get(2).getTotalScore()).isCloseTo(49.0, within(0.01));
     }
 
+    // UC-STU-deactivate-student 6e, UC-EVA-submit-evaluation 1d (BR-deactivated-student-not-evaluated)
+
+    @Test
+    void testAddPeerEvaluationOfADeactivatedEvaluateeIsRefused() {
+        // Given
+        LocalDate fixedDate = LocalDate.of(2023, 8, 13); // The previous week is 2023-W31
+        Clock fixedClock = Clock.fixed(fixedDate.atStartOfDay(ZoneId.systemDefault()).toInstant(), ZoneId.systemDefault());
+        given(this.clock.instant()).willReturn(fixedClock.instant());
+        given(this.clock.getZone()).willReturn(fixedClock.getZone());
+        this.woody.setEnabled(false);
+
+        PeerEvaluation newPeerEvaluation = new PeerEvaluation("2023-W31", this.amanda, this.woody, List.of(), "public comment", "private comment");
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.evaluationService.addPeerEvaluation(newPeerEvaluation));
+
+        // Then
+        assertThat(thrown).isInstanceOf(PeerEvaluationIllegalArgumentException.class);
+        verify(this.evaluationRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void testReportListsADeactivatedStudentForAWeekInWhichSheReceivedEvaluations() {
+        // Given: Woody (id 6) was deactivated after her teammates evaluated her in 2023-W31
+        this.woody.setEnabled(false);
+        given(this.sectionRepository.findById(anyInt())).willReturn(Optional.of(new Section("2023-2024", LocalDate.of(2023, 8, 14), LocalDate.of(2024, 4, 29), true, DayOfWeek.MONDAY, LocalTime.of(23, 59), DayOfWeek.TUESDAY, LocalTime.of(23, 59))));
+        given(this.studentRepository.findBySectionSectionId(anyInt())).willReturn(this.students);
+        given(this.evaluationRepository.findEvaluatorAndEvaluateeIds(2, "2023-W31")).willReturn(java.util.Collections.singletonList(new Object[]{7, 6}));
+        // The report computes an average for every student on a team, so every lookup is stubbed with the evaluations
+        // she received that week (ids: John 3, Eric 4, Jerry 5, Woody 6, Amanda 7)
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 3)).willReturn(this.johnsEvaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 4)).willReturn(this.ericsW31Evaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 5)).willReturn(this.jerryEvaulaitons);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 6)).willReturn(this.woodysEvaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 7)).willReturn(this.amandasEvaluations);
+
+        // When
+        WeeklyPeerEvaluationReport report = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(2, "2023-W31");
+
+        // Then
+        assertThat(report.getPeerEvaluationAverages()).hasSize(5);
+        PeerEvaluationAverage woodysAverage = report.getPeerEvaluationAverages().stream().filter(average -> average.getStudentId().equals(6)).findFirst().orElseThrow();
+        assertThat(woodysAverage.getAverageTotalScore()).isCloseTo(this.woodysEvaluations.stream().mapToDouble(PeerEvaluation::getTotalScore).average().orElseThrow(), within(0.01));
+    }
+
+    @Test
+    void testReportOmitsADeactivatedStudentForAWeekInWhichSheReceivedNoEvaluations() {
+        // Given: nobody evaluated Woody (id 6) in 2023-W32, after her deactivation
+        this.woody.setEnabled(false);
+        given(this.sectionRepository.findById(anyInt())).willReturn(Optional.of(new Section("2023-2024", LocalDate.of(2023, 8, 14), LocalDate.of(2024, 4, 29), true, DayOfWeek.MONDAY, LocalTime.of(23, 59), DayOfWeek.TUESDAY, LocalTime.of(23, 59))));
+        given(this.studentRepository.findBySectionSectionId(anyInt())).willReturn(this.students);
+        given(this.evaluationRepository.findEvaluatorAndEvaluateeIds(2, "2023-W32")).willReturn(List.of());
+
+        // When
+        WeeklyPeerEvaluationReport report = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(2, "2023-W32");
+
+        // Then
+        assertThat(report.getPeerEvaluationAverages()).hasSize(4);
+        assertThat(report.getPeerEvaluationAverages()).noneMatch(average -> average.getStudentId().equals(6));
+    }
+
+    @Test
+    void testReportStillListsAnEnabledStudentWithNoEvaluationsWithZero() {
+        // Given: everyone is enabled and nobody was evaluated in 2023-W32
+        given(this.sectionRepository.findById(anyInt())).willReturn(Optional.of(new Section("2023-2024", LocalDate.of(2023, 8, 14), LocalDate.of(2024, 4, 29), true, DayOfWeek.MONDAY, LocalTime.of(23, 59), DayOfWeek.TUESDAY, LocalTime.of(23, 59))));
+        given(this.studentRepository.findBySectionSectionId(anyInt())).willReturn(this.students);
+
+        // When
+        WeeklyPeerEvaluationReport report = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(2, "2023-W32");
+
+        // Then
+        assertThat(report.getPeerEvaluationAverages()).hasSize(5);
+        assertThat(report.getPeerEvaluationAverages()).allMatch(average -> average.getAverageTotalScore() == 0.0);
+    }
+
 }

@@ -1477,7 +1477,7 @@ Details:
   - 5a1. The system makes no change; the student stays active.
   - 5a2. Use case ends.
 - **6a. The student is already deactivated** (for example, another course admin or instructor deactivated her a moment earlier):
-  - 6a1. The system changes nothing and informs the course admin or instructor that this student was already deactivated.
+  - 6a1. The system changes nothing and reports the deactivation as successful, as it does in step 6, because the goal is already met.
   - 6a2. Use case ends.
 - **6b. The user is neither the course admin of the student's course nor an instructor assigned to her course section** (BR-student-lifecycle, BR-section-scoped-access):
   - 6b1. The system refuses the deactivation and changes nothing. It does not reveal whether the student exists.
