@@ -2243,7 +2243,7 @@ Report generating algorithm: N/A
   - 1c1. The system does not accept a peer evaluation and informs the student that she must be assigned to a team before she can submit peer evaluations (BR-team-assignment-required).
   - 1c2. Use case ends.
 - **1d. A team member to be evaluated has been deactivated** (for example, after the student opened the form):
-  - 1d1. The system does not accept a peer evaluation of that team member and informs the student that this team member's account is deactivated, so she is not evaluated (BR-deactivated-student-not-evaluated).
+  - 1d1. The system does not accept a new peer evaluation of that team member and informs the student that this team member's account is deactivated, so she is not evaluated (BR-deactivated-student-not-evaluated).
   - 1d2. The student returns to step 4 of the normal flow with that team member left out.
 - **4a. Input validation rule violation:**
   - 4a1. The system alerts the student that an input validation rule is violated and displays the nature and location of the error.
