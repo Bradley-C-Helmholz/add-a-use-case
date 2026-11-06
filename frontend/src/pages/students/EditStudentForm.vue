@@ -14,13 +14,30 @@
       <el-input v-model="studentBeingEdited.username"></el-input>
     </el-form-item>
     <el-form-item label="Status:" prop="enabled">
+      <!-- An active student is deactivated through its own confirmed action (UC-STU-deactivate-student). The switch
+           stays only while she is deactivated, as the temporary way to reactivate her until UC-STU-reactivate-student
+           is built and replaces it. -->
       <el-switch
+        v-if="wasDeactivated === true"
         v-model="studentBeingEdited.enabled"
         inline-prompt
         active-text="Enabled"
         inactive-text="Disabled"
         style="--el-switch-on-color: #13ce66; --el-switch-off-color: #ff4949"
       />
+      <template v-else-if="wasDeactivated === false">
+        <el-tag type="success">Enabled</el-tag>
+        <el-button
+          type="danger"
+          plain
+          style="margin-left: 12px"
+          :loading="deactivating"
+          data-cy="student-deactivate"
+          @click="confirmAndDeactivate()"
+        >
+          Deactivate
+        </el-button>
+      </template>
     </el-form-item>
     <el-form-item label="First Name:" prop="firstName">
       <el-input v-model="studentBeingEdited.firstName"></el-input>
@@ -42,11 +59,11 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import type { Student } from '@/apis/student/types'
 import type { FormInstance } from 'element-plus'
-import { findStudentById, updateStudent } from '@/apis/student'
-import { ref, onMounted } from 'vue'
+import { deactivateStudent, findStudentById, updateStudent } from '@/apis/student'
+import { h, ref, onMounted } from 'vue'
 
 const { studentId } = defineProps(['studentId'])
 const emit = defineEmits(['close-dialog'])
@@ -63,6 +80,10 @@ const studentBeingEdited = ref<Student>({
 })
 
 const studentForm = ref<FormInstance>() // Form reference
+
+// Whether the student was already deactivated when she was loaded: null until she is loaded
+const wasDeactivated = ref<boolean | null>(null)
+const deactivating = ref(false) // A deactivation request is in flight
 
 // Validation rules
 const rules = {
@@ -98,6 +119,51 @@ async function loadStudent(studentId: number) {
   studentBeingEdited.value.lastName = result.data.lastName
   studentBeingEdited.value.email = result.data.email
   studentBeingEdited.value.teamName = result.data.teamName
+  wasDeactivated.value = !result.data.enabled
+}
+
+// Step 4 of UC-STU-deactivate-student: the consequences, the warning, and the question
+function consequencesOfDeactivation() {
+  return h('div', [
+    h(
+      'p',
+      `You are about to deactivate ${studentBeingEdited.value.firstName} ${studentBeingEdited.value.lastName}.`
+    ),
+    h('ul', { style: 'padding-left: 20px; margin: 8px 0' }, [
+      h(
+        'li',
+        'She will no longer be able to log in, or to submit weekly activity reports and peer evaluations.'
+      ),
+      h('li', 'Her teammates will no longer be able to submit new peer evaluations of her.'),
+      h('li', 'Her account and her previously submitted work are kept in the system.'),
+      h('li', 'This is not a deletion: her account can be reactivated later.')
+    ]),
+    h('p', { style: 'font-weight: bold' }, 'Do you want to deactivate this student?')
+  ])
+}
+
+async function confirmAndDeactivate() {
+  try {
+    await ElMessageBox.confirm(consequencesOfDeactivation(), 'Deactivate student', {
+      type: 'warning',
+      confirmButtonText: 'Deactivate',
+      cancelButtonText: 'Cancel',
+      confirmButtonClass: 'el-button--danger deactivate-student-confirm',
+      cancelButtonClass: 'deactivate-student-cancel',
+      customClass: 'deactivate-student-dialog'
+    })
+  } catch {
+    return // 5a: the actor cancelled, so nothing is sent and the student stays active
+  }
+
+  deactivating.value = true
+  try {
+    await deactivateStudent(studentBeingEdited.value.id as number) // The same success if she was already deactivated (6a)
+    ElMessage.success('Student deactivated successfully') // Step 6
+    emit('close-dialog')
+  } finally {
+    deactivating.value = false
+  }
 }
 
 onMounted(() => {
