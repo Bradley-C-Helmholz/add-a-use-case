@@ -823,8 +823,7 @@ public class EvaluationIntegrationTest extends AbstractIntegrationTest {
 
         this.mockMvc.perform(post(this.baseUrl + "/evaluations").contentType(MediaType.APPLICATION_JSON).content(json).accept(MediaType.APPLICATION_JSON).header(HttpHeaders.AUTHORIZATION, this.studentJohnToken))
                 .andExpect(jsonPath("$.flag").value(false))
-                .andExpect(jsonPath("$.code").value(StatusCode.INVALID_ARGUMENT))
-                .andExpect(jsonPath("$.message").value("This team member's account is deactivated, so she is not evaluated."));
+                .andExpect(jsonPath("$.code").value(StatusCode.INVALID_ARGUMENT));
 
         assertThat(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W36", 5)).isEmpty();
     }

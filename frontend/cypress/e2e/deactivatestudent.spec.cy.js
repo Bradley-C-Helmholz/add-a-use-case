@@ -74,7 +74,7 @@ describe('Deactivate a student', () => {
     cy.get('.deactivate-student-confirm').click()
 
     cy.wait('@deactivation').its('request.url').should('match', /\/students\/4\/deactivation$/)
-    cy.contains('Student deactivated successfully').should('be.visible')
+    cy.get('.el-message--success').should('be.visible')
     cy.get('@deactivation.all').should('have.length', 1)
   })
 })

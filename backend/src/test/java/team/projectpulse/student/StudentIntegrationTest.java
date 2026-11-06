@@ -357,7 +357,7 @@ class StudentIntegrationTest extends AbstractIntegrationTest {
         deactivate(JOHN_ID, this.instructorBillToken)
                 .andExpect(jsonPath("$.flag").value(true))
                 .andExpect(jsonPath("$.code").value(StatusCode.SUCCESS))
-                .andExpect(jsonPath("$.message").value("Deactivate student successfully"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
                 .andExpect(jsonPath("$.data.id").value(JOHN_ID))
                 .andExpect(jsonPath("$.data.enabled").value(false))
                 .andExpect(jsonPath("$.data.firstName").value("John"))

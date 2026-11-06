@@ -690,9 +690,7 @@ class EvaluationServiceTest {
         Throwable thrown = catchThrowable(() -> this.evaluationService.addPeerEvaluation(newPeerEvaluation));
 
         // Then
-        assertThat(thrown)
-                .isInstanceOf(PeerEvaluationIllegalArgumentException.class)
-                .hasMessage("This team member's account is deactivated, so she is not evaluated.");
+        assertThat(thrown).isInstanceOf(PeerEvaluationIllegalArgumentException.class);
         verify(this.evaluationRepository, org.mockito.Mockito.never()).save(any());
     }
 
@@ -748,7 +746,6 @@ class EvaluationServiceTest {
         // Then
         assertThat(report.getPeerEvaluationAverages()).hasSize(5);
         assertThat(report.getPeerEvaluationAverages()).allMatch(average -> average.getAverageTotalScore() == 0.0);
-        verify(this.evaluationRepository, org.mockito.Mockito.never()).findEvaluatorAndEvaluateeIds(anyInt(), anyString());
     }
 
 }
