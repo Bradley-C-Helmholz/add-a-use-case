@@ -1473,6 +1473,19 @@ Details:
 7. Use case ends.
 
 **Extensions:**
+- **5a. The course admin or instructor cancels instead of confirming (at any step before step 5):**
+  - 5a1. The system makes no change; the student stays active.
+  - 5a2. Use case ends.
+- **6a. The student is already deactivated** (for example, another course admin or instructor deactivated her a moment earlier):
+  - 6a1. The system changes nothing and informs the course admin or instructor that this student was already deactivated.
+  - 6a2. Use case ends.
+- **6b. The user is neither the course admin of the student's course nor an instructor assigned to her course section** (BR-student-lifecycle, BR-section-scoped-access):
+  - 6b1. The system refuses the deactivation and changes nothing. It does not reveal whether the student exists.
+  - 6b2. Use case ends.
+- **6c. The student no longer exists** (for example, a course admin deleted her after step 2, UC-STU-delete-student: Delete a student):
+  - 6c1. The system informs the course admin or instructor that the student was not found.
+  - 6c2. Use case ends.
+
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
 **Business Rules:** BR-student-lifecycle
