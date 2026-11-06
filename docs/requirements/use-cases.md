@@ -1536,6 +1536,7 @@ Details:
 
 **Associated Information:**
 - The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- Interim path to remove: until this use case is built, a deactivated student is reactivated through the Status switch in the student edit form, which sends the enabled flag in the update-student request. That switch and the update-student request's handling of the enabled flag exist only because UC-STU-deactivate-student: Deactivate a student gave deactivation its own confirmed action first. Building this use case shall remove both, so that reactivation happens only through this use case.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-deactivate-student: Deactivate a student
 **Assumptions:**
