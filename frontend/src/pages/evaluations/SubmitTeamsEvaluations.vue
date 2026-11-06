@@ -182,7 +182,9 @@ onMounted(async () => {
 async function loadStudents() {
   // On the back end, the page number starts from 0, so subtract 1 here
   const result: FindStudentByTeamIdResponse = await findStudentsByTeamId(teamId.value)
-  students.value = result.data
+  // A deactivated teammate is not evaluated (BR-deactivated-student-not-evaluated, UC-EVA-submit-evaluation 1d). The
+  // server refuses an evaluation of her regardless, so this only spares the student a row that would fail.
+  students.value = result.data.filter((student) => student.enabled)
 }
 
 // Load criteria information
