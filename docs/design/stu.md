@@ -32,8 +32,11 @@ classDiagram
     }
     class SecurityConfiguration {
         <<security>>
-        +securityFilterChain()  new route rule
-        +jwtAuthenticationConverter()  per-request enabled check
+        +securityFilterChain()  new route rule, wires the converter
+    }
+    class ActiveAccountJwtAuthenticationConverter {
+        <<security, NEW>>
+        +convert(jwt)  per-request enabled check
     }
     class UserRepository {
         <<user>>
@@ -49,7 +52,8 @@ classDiagram
     StudentService --> Student
     StudentCourseOwnershipAuthorizationManager --> StudentSecurityService
     SecurityConfiguration --> StudentCourseOwnershipAuthorizationManager
-    SecurityConfiguration --> UserRepository
+    SecurityConfiguration --> ActiveAccountJwtAuthenticationConverter
+    ActiveAccountJwtAuthenticationConverter --> UserRepository
     EvaluationService --> Student
 ```
 
@@ -58,7 +62,8 @@ classDiagram
 | `Student.enabled` (via `PeerEvaluationUser`) | reused, no schema change | [`user/PeerEvaluationUser.java`](../../backend/src/main/java/team/projectpulse/user/PeerEvaluationUser.java) |
 | `deactivateStudent` | new | [`student/StudentController.java`](../../backend/src/main/java/team/projectpulse/student/StudentController.java), [`student/StudentService.java`](../../backend/src/main/java/team/projectpulse/student/StudentService.java) |
 | `isCurrentUserAdminOfStudentCourse`, `StudentCourseOwnershipAuthorizationManager` | new, thin wrapper | [`student/StudentSecurityService.java`](../../backend/src/main/java/team/projectpulse/student/StudentSecurityService.java), `security/authorizationmanagers/` |
-| route rule, per-request enabled check | new | [`security/SecurityConfiguration.java`](../../backend/src/main/java/team/projectpulse/security/SecurityConfiguration.java), [`user/UserRepository.java`](../../backend/src/main/java/team/projectpulse/user/UserRepository.java) |
+| route rule | new | [`security/SecurityConfiguration.java`](../../backend/src/main/java/team/projectpulse/security/SecurityConfiguration.java) |
+| `ActiveAccountJwtAuthenticationConverter` (per-request enabled check), wired into `securityFilterChain`; `UserRepository.isEnabled` | new | [`security/ActiveAccountJwtAuthenticationConverter.java`](../../backend/src/main/java/team/projectpulse/security/ActiveAccountJwtAuthenticationConverter.java), [`user/UserRepository.java`](../../backend/src/main/java/team/projectpulse/user/UserRepository.java) |
 | inactive-evaluatee rejection, report rule | changed | [`evaluation/EvaluationService.java`](../../backend/src/main/java/team/projectpulse/evaluation/EvaluationService.java) |
 | Deactivate button, confirm dialog; Status switch only while deactivated | changed | [`pages/students/EditStudentForm.vue`](../../frontend/src/pages/students/EditStudentForm.vue), `apis/student/` |
 | teammate list filters `enabled` | changed, one line | [`pages/evaluations/SubmitTeamsEvaluations.vue`](../../frontend/src/pages/evaluations/SubmitTeamsEvaluations.vue) |
@@ -95,7 +100,7 @@ sequenceDiagram
 sequenceDiagram
     participant B as Browser (token issued before deactivation)
     participant F as Bearer token filter
-    participant J as JwtAuthenticationConverter
+    participant J as ActiveAccountJwtAuthenticationConverter
     participant U as UserRepository
     B->>F: any request with a still-valid JWT
     F->>J: convert(jwt)
@@ -147,7 +152,7 @@ stateDiagram-v2
 2. **Idempotent when already deactivated (6a).** Rejected: an error, because two actors clicking at once should not see a failure for a goal already met.
 3. **Confirmation lives in the UI only.** Rejected: a server-side confirm token, which adds state for no gain because the action is reversible.
 4. **The course-admin check is a new `anyOf` branch, not a widening of `isCurrentUserInstructorOfStudentSection`.** That method also guards the private-comments route, which is deliberately instructor-only. Today the route admits only the student herself or an instructor of her course section, so a course admin not assigned to the section is refused although BR-student-lifecycle admits her.
-5. **Per-request enabled check, one primary-key lookup, for every role.** The JWT lives two hours and nothing rechecks `enabled`, so without this a deactivated student works until it expires, which FR-SEC-active-account forbids. Rejected: a shorter token lifetime and a cached flag (both leave a window the requirement forbids), and a revocation list (adds server state to a stateless design, KD-self-issued-jwt). Cost: one indexed lookup per authenticated request. It also closes the gap for deactivated instructors; UC-INS-deactivate-instructor is not changed here. This ships as the first, separate commit of the build pull request.
+5. **Per-request enabled check, one primary-key lookup, for every role.** The JWT lives two hours and nothing rechecks `enabled`, so without this a deactivated student works until it expires, which FR-SEC-active-account forbids. The check lives in a new `ActiveAccountJwtAuthenticationConverter`, which wraps a `JwtAuthenticationConverter` (its `convert` is final, so it cannot be subclassed) and is wired into `securityFilterChain` explicitly with `jwt.jwtAuthenticationConverter(...)`. It is not exposed as a bean in place of the old one: the resource server's DSL discovers a converter bean only by the exact type `JwtAuthenticationConverter`, so a bean of any other type is silently ignored and the default converter runs, which skips the check and drops the `authorities` claim mapping. Rejected: a shorter token lifetime and a cached flag (both leave a window the requirement forbids), and a revocation list (adds server state to a stateless design, KD-self-issued-jwt). Cost: one indexed lookup per authenticated request. It also closes the gap for deactivated instructors; UC-INS-deactivate-instructor is not changed here. This ships as the first, separate commit of the build pull request.
 6. **The report rule is derived from data, not a stored date.** `addPeerEvaluation` refuses an inactive evaluatee, so after deactivation she receives nothing; the report lists a student if she is enabled or received evaluations that week, reusing `EvaluationService.findEvaluateeIdsByEvaluator` (flatten its values). Rejected: a `deactivated_at` column (reactivation clears it and loses history) and an interval table (couples this use case to its sibling and adds a migration). Accepted consequence: evaluations for the last week before deactivation that teammates had not yet submitted are lost, and an earlier week in which nobody evaluated her also drops out (she would have shown 0.0 there).
 7. **Reject at the server, filter in the form.** The server rule is authoritative (BR-deactivated-student-not-evaluated); the form filter avoids a failing row in the normal case, and a stale form gets the 1d rejection. `GET /students/teams/{teamId}` has no other caller. Evaluations are saved one evaluatee at a time, so a teammate deactivated mid-submit can leave a partial set; this is harmless because BR-submission-owed asks only for active teammates.
 8. **`PUT /students/{id}` stays unchanged for now.** The form shows the Deactivate button for an active student and the Status switch only while she is deactivated, as a temporary reactivation path. Rejected: stop honoring `enabled` on `PUT` now, because reactivation would lose its only path until UC-STU-reactivate-student is built; that use case's Associated Information records that it removes both.
