@@ -1473,12 +1473,31 @@ Details:
 7. Use case ends.
 
 **Extensions:**
+- **5a. The course admin or instructor cancels instead of confirming (at any step before step 5):**
+  - 5a1. The system makes no change; the student stays active.
+  - 5a2. Use case ends.
+- **6a. The student is already deactivated** (for example, another course admin or instructor deactivated her a moment earlier):
+  - 6a1. The system changes nothing and informs the course admin or instructor that this student was already deactivated.
+  - 6a2. Use case ends.
+- **6b. The user is neither the course admin of the student's course nor an instructor assigned to her course section** (BR-student-lifecycle, BR-section-scoped-access):
+  - 6b1. The system refuses the deactivation and changes nothing. It does not reveal whether the student exists.
+  - 6b2. Use case ends.
+- **6c. The student no longer exists** (for example, a course admin deleted her after step 2, UC-STU-delete-student: Delete a student):
+  - 6c1. The system informs the course admin or instructor that the student was not found.
+  - 6c2. Use case ends.
+- **6d. The student is logged in when she is deactivated:**
+  - 6d1. The system denies her next request, and every request after it, until she is reactivated (FR-SEC-active-account). She need not wait for her login to expire.
+  - 6d2. Use case ends.
+- **6e. Her teammates evaluate her after the deactivation:**
+  - 6e1. The system does not accept a new peer evaluation of her, keeps the peer evaluations already submitted of her, and lists her in a peer evaluation report only for the weeks in which she received peer evaluations (BR-deactivated-student-not-evaluated).
+  - 6e2. Use case ends.
+
 **Priority:** Low
 **Frequency of Use:** Rare. Occurs occasionally when a student withdraws from a course section.
-**Business Rules:** BR-student-lifecycle
+**Business Rules:** BR-student-lifecycle, BR-deactivated-student-not-evaluated
 
 **Associated Information:**
-- Consequence of the deactivation: The student will no longer be able to log in or submit weekly activity reports and peer evaluations, but the student's account and her previously submitted work are kept in the system. Deactivation will NOT remove the student from the system, and the account can be reactivated in the future (UC-STU-reactivate-student: Reactivate a student). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete. The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- Consequence of the deactivation: The student will no longer be able to log in or submit weekly activity reports and peer evaluations, but the student's account and her previously submitted work are kept in the system. Deactivation will NOT remove the student from the system, and the account can be reactivated in the future (UC-STU-reactivate-student: Reactivate a student). Her teammates will no longer be able to submit new peer evaluations of her (BR-deactivated-student-not-evaluated). This is distinct from deletion (UC-STU-delete-student: Delete a student), which is a physical, unrecoverable delete. The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-reactivate-student: Reactivate a student
 **Assumptions:**
@@ -1517,6 +1536,7 @@ Details:
 
 **Associated Information:**
 - The course admin or instructor shall be able to cancel the use case at any time prior to submitting it.
+- Interim path to remove: until this use case is built, a deactivated student is reactivated through the Status switch in the student edit form, which sends the enabled flag in the update-student request. That switch and the update-student request's handling of the enabled flag exist only because UC-STU-deactivate-student: Deactivate a student gave deactivation its own confirmed action first. Building this use case shall remove both, so that reactivation happens only through this use case.
 
 **Related Use Cases:** UC-STU-delete-student: Delete a student; UC-STU-deactivate-student: Deactivate a student
 **Assumptions:**
@@ -2222,18 +2242,21 @@ Report generating algorithm: N/A
 - **1c. The student is not assigned to a team:**
   - 1c1. The system does not accept a peer evaluation and informs the student that she must be assigned to a team before she can submit peer evaluations (BR-team-assignment-required).
   - 1c2. Use case ends.
+- **1d. A team member to be evaluated has been deactivated** (for example, after the student opened the form):
+  - 1d1. The system does not accept a new peer evaluation of that team member and informs the student that this team member's account is deactivated, so she is not evaluated (BR-deactivated-student-not-evaluated).
+  - 1d2. The student returns to step 4 of the normal flow with that team member left out.
 - **4a. Input validation rule violation:**
   - 4a1. The system alerts the student that an input validation rule is violated and displays the nature and location of the error.
   - 4a2. The student corrects the mistake and returns to step 4 of the normal flow.
 
 **Priority:** High
 **Frequency of Use:** Approximately 35-40 users, 1 usage per week.
-**Business Rules:** BR-team-scoped-access (the student evaluates the members of a team she belongs to, and no other team), BR-team-assignment-required (only a student assigned to a team submits one), BR-active-weeks, BR-evaluation-editable-until-close, BR-evaluation-submission-window, BR-evaluation-private-comment
+**Business Rules:** BR-team-scoped-access (the student evaluates the members of a team she belongs to, and no other team), BR-team-assignment-required (only a student assigned to a team submits one), BR-active-weeks, BR-evaluation-editable-until-close, BR-evaluation-submission-window, BR-evaluation-private-comment, BR-deactivated-student-not-evaluated (a deactivated team member is not evaluated)
 
 **Associated Information:**
 
 Details:
-- Every team member MUST be evaluated.
+- Every active team member MUST be evaluated. A deactivated team member is not evaluated.
 - Scores MUST be integers.
 
 Example (each team member, self included, is evaluated on every rubric criterion):
@@ -2343,7 +2366,7 @@ Report generating algorithm: For each individual criterion score (e.g., Quality 
 
 **Priority:** High
 **Frequency of Use:** Approximately 2 users, average of 1 usage per week.
-**Business Rules:** BR-section-scoped-access (the instructor may generate the report only for a course section she is assigned to), BR-evaluation-private-comment, BR-submission-owed (who has not turned in the peer evaluation)
+**Business Rules:** BR-section-scoped-access (the instructor may generate the report only for a course section she is assigned to), BR-evaluation-private-comment, BR-submission-owed (who has not turned in the peer evaluation), BR-deactivated-student-not-evaluated (which students the report lists)
 
 **Associated Information:**
 
@@ -2363,6 +2386,8 @@ An example of the generated report:
 | Lily Fisher | … | … | … | … |
 
 The report shall show who did not turn in the peer evaluation for that week, meaning the students who owe it (BR-submission-owed).
+
+The report shall list a deactivated student only for a week in which she received peer evaluations (BR-deactivated-student-not-evaluated).
 
 Report generating algorithm: How to compute the peer evaluation grade for a student? Each student receives multiple peer evaluations from her teammates every week. First, obtain the peer evaluations received by a student for that week. For each peer evaluation, compute a total score by adding up the individual criterion scores. Then compute the average of the total scores across the peer evaluations. For example, John Doe receives two peer evaluations from Tim Smith and Lily Fisher, respectively. Tim Smith gives the following scores based on the rubric: 10, 9, 10, 9, 10, 10. So the total score given by Tim is 58. Lily Fisher gives the following scores based on the rubric: 5, 5, 10, 10, 10, 10. So the total score given by Tim is 50. The grade that John Doe receives that week is (58 + 50) / 2 = 54.
 
