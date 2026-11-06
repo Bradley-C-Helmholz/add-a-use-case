@@ -703,7 +703,13 @@ class EvaluationServiceTest {
         given(this.sectionRepository.findById(anyInt())).willReturn(Optional.of(new Section("2023-2024", LocalDate.of(2023, 8, 14), LocalDate.of(2024, 4, 29), true, DayOfWeek.MONDAY, LocalTime.of(23, 59), DayOfWeek.TUESDAY, LocalTime.of(23, 59))));
         given(this.studentRepository.findBySectionSectionId(anyInt())).willReturn(this.students);
         given(this.evaluationRepository.findEvaluatorAndEvaluateeIds(2, "2023-W31")).willReturn(java.util.Collections.singletonList(new Object[]{7, 6}));
+        // The report computes an average for every student on a team, so every lookup is stubbed with the evaluations
+        // she received that week (ids: John 3, Eric 4, Jerry 5, Woody 6, Amanda 7)
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 3)).willReturn(this.johnsEvaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 4)).willReturn(this.ericsW31Evaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 5)).willReturn(this.jerryEvaulaitons);
         given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 6)).willReturn(this.woodysEvaluations);
+        given(this.evaluationRepository.findByWeekAndEvaluateeId("2023-W31", 7)).willReturn(this.amandasEvaluations);
 
         // When
         WeeklyPeerEvaluationReport report = this.evaluationService.generateWeeklyPeerEvaluationReportForSection(2, "2023-W31");
