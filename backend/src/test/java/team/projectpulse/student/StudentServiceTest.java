@@ -5,6 +5,7 @@ import team.projectpulse.instructor.Instructor;
 import team.projectpulse.section.Section;
 import team.projectpulse.section.SectionRepository;
 import team.projectpulse.system.UserUtils;
+import team.projectpulse.system.exception.ObjectNotFoundException;
 import team.projectpulse.user.MyUserPrincipal;
 import team.projectpulse.user.userinvitation.UserInvitationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -188,6 +190,57 @@ class StudentServiceTest {
 
         // Then
         verify(this.studentRepository, times(1)).deleteById(1);
+    }
+
+    // UC-STU-deactivate-student
+
+    @Test
+    void testDeactivateStudent() {
+        // Given
+        Student john = this.students.get(0);
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+        given(this.studentRepository.save(john)).willReturn(john);
+
+        // When
+        Student result = this.studentService.deactivateStudent(1);
+
+        // Then: only enabled changes
+        assertThat(result.isEnabled()).isFalse();
+        assertThat(result.getUsername()).isEqualTo("john");
+        assertThat(result.getFirstName()).isEqualTo("John");
+        assertThat(result.getLastName()).isEqualTo("Smith");
+        assertThat(result.getEmail()).isEqualTo("j.smith@abc.edu");
+        assertThat(result.getRoles()).isEqualTo("student");
+        verify(this.studentRepository, times(1)).save(john);
+        verify(this.studentRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void testDeactivateStudentAlreadyDeactivated() {
+        // Given (6a)
+        Student john = this.students.get(0);
+        john.setEnabled(false);
+        given(this.studentRepository.findById(1)).willReturn(Optional.of(john));
+
+        // When
+        Student result = this.studentService.deactivateStudent(1);
+
+        // Then: she stays deactivated and nothing is written
+        assertThat(result.isEnabled()).isFalse();
+        verify(this.studentRepository, never()).save(any());
+    }
+
+    @Test
+    void testDeactivateStudentNotFound() {
+        // Given (6c, a race: the student was deleted after the route rule admitted the caller)
+        given(this.studentRepository.findById(999999)).willReturn(Optional.empty());
+
+        // When
+        Throwable thrown = catchThrowable(() -> this.studentService.deactivateStudent(999999));
+
+        // Then
+        assertThat(thrown).isInstanceOf(ObjectNotFoundException.class);
+        verify(this.studentRepository, never()).save(any());
     }
 
 }

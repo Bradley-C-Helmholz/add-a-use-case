@@ -125,6 +125,26 @@ public class StudentService {
         return this.studentRepository.save(oldStudent);
     }
 
+    /**
+     * Deactivates a student: her access is revoked while her record and submitted work stay
+     * (UC-STU-deactivate-student, BR-student-lifecycle). Only {@code enabled} changes; her team, activities and peer
+     * evaluations are untouched.
+     *
+     * <p>Idempotent (extension 6a): a student who is already deactivated is returned unchanged rather than refused,
+     * because two actors acting at once should not see a failure for a goal already met. Who may call this is the
+     * route rule's question; the lookup here fails with {@code ObjectNotFoundException} only in a race, when the
+     * student was deleted after the route rule admitted the caller (extension 6c).
+     */
+    public Student deactivateStudent(Integer studentId) {
+        Student student = this.studentRepository.findById(studentId)
+                .orElseThrow(() -> new ObjectNotFoundException("student", studentId));
+        if (!student.isEnabled()) {
+            return student;
+        }
+        student.setEnabled(false);
+        return this.studentRepository.save(student);
+    }
+
     public void deleteStudent(Integer studentId) {
         this.studentRepository.findById(studentId)
                 .orElseThrow(() -> new ObjectNotFoundException("student", studentId));
